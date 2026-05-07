@@ -10,12 +10,19 @@ const activeFileName = document.getElementById('activeFileName');
 const buildStage = document.getElementById('buildStage');
 const elapsedTime = document.getElementById('elapsedTime');
 const completedActions = document.getElementById('completedActions');
+const stallCard = document.getElementById('stallCard');
+const stallStatus = document.getElementById('stallStatus');
+const gitCard = document.getElementById('gitCard');
+const gitInfo = document.getElementById('gitInfo');
 const statusBadge = document.getElementById('statusBadge');
 const statusText = document.getElementById('statusText');
 const lastUpdate = document.getElementById('lastUpdate');
 const errorPanel = document.getElementById('errorPanel');
 const firstError = document.getElementById('firstError');
 const errorList = document.getElementById('errorList');
+const errorTypeBadge = document.getElementById('errorTypeBadge');
+const errorContextDetails = document.getElementById('errorContextDetails');
+const errorContextLog = document.getElementById('errorContextLog');
 const historyList = document.getElementById('historyList');
 const slowFilesList = document.getElementById('slowFilesList');
 const discordWebhookUrl = document.getElementById('discordWebhookUrl');
@@ -24,6 +31,10 @@ const slackWebhookUrl = document.getElementById('slackWebhookUrl');
 const slackWebhookEnabled = document.getElementById('slackWebhookEnabled');
 const saveWebhookSettings = document.getElementById('saveWebhookSettings');
 const webhookSettingsStatus = document.getElementById('webhookSettingsStatus');
+const historyModal = document.getElementById('historyModal');
+const closeHistoryModal = document.getElementById('closeHistoryModal');
+const historyModalTitle = document.getElementById('historyModalTitle');
+const historyModalContent = document.getElementById('historyModalContent');
 
 const config = window.buildMonitorConfig || {};
 const projects = Array.isArray(config.projects) && config.projects.length
@@ -37,6 +48,7 @@ let refreshMs = Number(config.refreshMs || activeProject.refreshMs || 1000);
 let lastTerminalNotification = null;
 let pollTimer = null;
 let webhookSettingsSaveTimer = null;
+let latestHistory = [];
 
 function clampPercent(percent) {
     return Math.max(0, Math.min(100, Number(percent) || 0));
@@ -47,6 +59,15 @@ function formatDuration(seconds) {
     if (value < 60) return `${value.toFixed(1)}s`;
     const minutes = Math.floor(value / 60);
     return `${minutes}m ${(value % 60).toFixed(0)}s`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function applyProject(project) {
@@ -157,6 +178,26 @@ function setupWebhookSettings() {
     loadWebhookSettings();
 }
 
+function setupHistoryModal() {
+    historyList.addEventListener('click', (event) => {
+        const button = event.target.closest('.history-row');
+        if (!button) return;
+        openHistoryModal(latestHistory[Number(button.dataset.historyIndex)]);
+    });
+
+    closeHistoryModal.addEventListener('click', closeModal);
+    historyModal.addEventListener('click', (event) => {
+        if (event.target === historyModal) {
+            closeModal();
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeModal();
+        }
+    });
+}
+
 function setProgress(percent) {
     const safePercent = clampPercent(percent);
     const offset = CIRCUMFERENCE - (safePercent / 100) * CIRCUMFERENCE;
@@ -181,9 +222,12 @@ function setStatusClass(status) {
 function renderErrorPanel(data) {
     const errors = Array.isArray(data.errors) ? data.errors.filter(Boolean) : [];
     const mainError = data.first_error || errors[0] || '';
+    const context = Array.isArray(data.error_context) ? data.error_context : [];
     const shouldShow = (data.status || '').toUpperCase() === 'FAILED' || errors.length > 0;
 
     errorPanel.classList.toggle('hidden', !shouldShow);
+    errorTypeBadge.textContent = data.error_type || 'Unknown';
+    errorTypeBadge.className = `error-type-badge ${String(data.error_type || 'unknown').toLowerCase()}`;
     firstError.textContent = mainError || 'No errors detected.';
     errorList.innerHTML = '';
 
@@ -192,11 +236,19 @@ function renderErrorPanel(data) {
         item.textContent = error;
         errorList.appendChild(item);
     });
+
+    errorContextDetails.classList.toggle('hidden', !context.length);
+    errorContextLog.innerHTML = context.map((entry) => {
+        const line = String(entry.line || '').padStart(4, ' ');
+        const marker = entry.is_error ? '>' : ' ';
+        return `<span class="${entry.is_error ? 'context-error' : ''}">${marker} ${line} | ${escapeHtml(entry.text || '')}</span>`;
+    }).join('\n');
 }
 
 function renderHistory(history) {
     historyList.innerHTML = '';
     const rows = Array.isArray(history) ? history.slice(0, 10) : [];
+    latestHistory = rows;
 
     if (!rows.length) {
         historyList.classList.add('empty-list');
@@ -205,10 +257,10 @@ function renderHistory(history) {
     }
 
     historyList.classList.remove('empty-list');
-    rows.forEach((build) => {
+    rows.forEach((build, index) => {
         const item = document.createElement('li');
         const status = (build.status || 'UNKNOWN').toUpperCase();
-        item.innerHTML = `<span class="list-main">${status}</span><span>${build.elapsed_time || '00:00'} / ${build.total_actions || 0} actions</span>`;
+        item.innerHTML = `<button type="button" class="history-row" data-history-index="${index}"><span class="list-main">${status}</span><span>${build.elapsed_time || '00:00'} / ${build.total_actions || 0} actions</span></button>`;
         item.classList.add(status.toLowerCase());
         historyList.appendChild(item);
     });
@@ -230,6 +282,67 @@ function renderSlowFiles(files) {
         item.innerHTML = `<span class="list-main">${file.file || 'Unknown'}</span><span>${formatDuration(file.seconds)}</span>`;
         slowFilesList.appendChild(item);
     });
+}
+
+function renderStall(stall) {
+    const info = stall || {};
+    const stalled = Boolean(info.stalled);
+    const seconds = Number(info.seconds || 0);
+
+    stallCard.classList.toggle('hidden', !stalled && seconds <= 0);
+    stallCard.classList.toggle('stalled', stalled);
+    stallStatus.textContent = stalled
+        ? `No progress for ${formatDuration(seconds)}`
+        : `${formatDuration(seconds)} since action change`;
+}
+
+function renderGitInfo(info) {
+    const git = info || {};
+    gitCard.classList.toggle('hidden', !git.available);
+    if (!git.available) return;
+
+    const dirty = git.dirty ? ' dirty' : '';
+    gitInfo.textContent = `${git.branch || 'detached'} @ ${git.commit || 'unknown'}${dirty}`;
+}
+
+function openHistoryModal(build) {
+    if (!build) return;
+
+    const status = (build.status || 'UNKNOWN').toUpperCase();
+    const context = Array.isArray(build.error_context) ? build.error_context : [];
+    const slowFiles = Array.isArray(build.slow_files) ? build.slow_files : [];
+    const git = build.git_info || {};
+
+    historyModalTitle.textContent = `${status} build`;
+    historyModalContent.innerHTML = `
+        <div class="modal-metrics">
+            <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
+            <div><span>Elapsed</span><strong>${escapeHtml(build.elapsed_time || '00:00')}</strong></div>
+            <div><span>Actions</span><strong>${escapeHtml(build.total_actions || 0)}</strong></div>
+            <div><span>Error Type</span><strong>${escapeHtml(build.error_type || 'None')}</strong></div>
+        </div>
+        <section>
+            <h3>First Error</h3>
+            <p>${escapeHtml(build.first_error || 'No error recorded.')}</p>
+        </section>
+        <section>
+            <h3>Git</h3>
+            <p>${git.available ? `${escapeHtml(git.branch || 'detached')} @ ${escapeHtml(git.commit || 'unknown')}${git.dirty ? ' dirty' : ''}` : 'No git metadata recorded.'}</p>
+        </section>
+        <section>
+            <h3>Slow Files</h3>
+            <ul>${slowFiles.length ? slowFiles.map((file) => `<li>${escapeHtml(file.file || 'Unknown')} — ${formatDuration(file.seconds)}</li>`).join('') : '<li>No slow file data recorded.</li>'}</ul>
+        </section>
+        <section>
+            <h3>Error Context</h3>
+            <pre>${context.length ? context.map((entry) => `${entry.is_error ? '>' : ' '} ${String(entry.line || '').padStart(4, ' ')} | ${escapeHtml(entry.text || '')}`).join('\n') : 'No nearby log context recorded.'}</pre>
+        </section>
+    `;
+    historyModal.classList.remove('hidden');
+}
+
+function closeModal() {
+    historyModal.classList.add('hidden');
 }
 
 function maybeNotify(data) {
@@ -276,6 +389,8 @@ function renderStatus(data) {
     renderErrorPanel(data);
     renderHistory(data.history);
     renderSlowFiles(data.slow_files);
+    renderStall(data.stall);
+    renderGitInfo(data.git_info);
     maybeNotify(data);
 }
 
@@ -289,6 +404,8 @@ function renderStatusLoadError() {
         total_actions: 0,
         elapsed_time: '00:00',
         last_update: 'N/A',
+        stall: { stalled: false, seconds: 0 },
+        git_info: { available: false },
         history: [],
         slow_files: []
     });
@@ -330,5 +447,6 @@ function scheduleNextFetch() {
 
 setupProjectSelect();
 setupWebhookSettings();
+setupHistoryModal();
 applyProject(activeProject);
 fetchStatus();

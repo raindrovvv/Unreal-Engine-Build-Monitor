@@ -5,11 +5,16 @@ param(
     [string]$HistoryJsonPath = (Join-Path $PSScriptRoot "build_history.json"),
     [string]$WebhookSettingsPath = (Join-Path $PSScriptRoot "webhook_settings.json"),
     [string]$ProjectName = "Unreal Project",
+    [string]$GitRepoPath = "",
     [int]$PollSeconds = 1,
     [int]$HistoryLimit = 10,
     [int]$SlowFileLimit = 5,
+    [int]$ErrorContextLines = 12,
+    [int]$StallSeconds = 120,
     [switch]$NoJson,
     [switch]$NoHistory,
+    [switch]$EnableWindowsToast,
+    [switch]$EnableSound,
     [string]$WebhookUrl = "",
     [ValidateSet("discord", "slack")]
     [string]$WebhookProvider = "discord"
@@ -24,6 +29,10 @@ $trackedFile = ""
 $trackedFileStartedAt = $null
 $lastRecordedStatus = ""
 $lastNotificationKey = ""
+$lastToastKey = ""
+$lastSoundKey = ""
+$lastProgressAction = -1
+$lastProgressAt = [DateTime]::Now
 
 function Read-History {
     if ($NoHistory -or !(Test-Path $HistoryJsonPath)) {
@@ -67,11 +76,14 @@ function New-BuildStatus {
         [double]$Progress,
         [string]$ElapsedTime,
         [string]$FirstError,
-        [string[]]$Errors
+        [string[]]$Errors,
+        [string]$ErrorType,
+        [object[]]$ErrorContext
     )
 
     [ordered]@{
         project_name = $ProjectName
+        log_path = $LogPath
         total_actions = $TotalActions
         current_action = $CurrentAction
         current_file = $CurrentFile
@@ -80,7 +92,11 @@ function New-BuildStatus {
         stage = $Stage
         elapsed_time = $ElapsedTime
         first_error = $FirstError
+        error_type = $ErrorType
+        error_context = @($ErrorContext)
         errors = @($Errors)
+        stall = Get-StallInfo -Status $Status -CurrentAction $CurrentAction
+        git_info = Get-GitInfo
         slow_files = Get-SlowFiles
         history = @($history)
         last_update = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
@@ -97,6 +113,66 @@ function Get-SlowFiles {
                 seconds = [Math]::Round([double]$_.Value, 1)
             }
         }
+}
+
+function Get-GitInfo {
+    if (!$GitRepoPath -or !(Test-Path $GitRepoPath)) {
+        return [ordered]@{
+            available = $false
+            branch = ""
+            commit = ""
+            dirty = $false
+        }
+    }
+
+    try {
+        $branch = (& git -C $GitRepoPath branch --show-current 2>$null).Trim()
+        $commit = (& git -C $GitRepoPath rev-parse --short HEAD 2>$null).Trim()
+        $dirty = [bool]((& git -C $GitRepoPath status --porcelain 2>$null) | Select-Object -First 1)
+
+        [ordered]@{
+            available = [bool]($branch -or $commit)
+            branch = $branch
+            commit = $commit
+            dirty = $dirty
+        }
+    } catch {
+        [ordered]@{
+            available = $false
+            branch = ""
+            commit = ""
+            dirty = $false
+        }
+    }
+}
+
+function Get-StallInfo {
+    param(
+        [string]$Status,
+        [int]$CurrentAction
+    )
+
+    if ($Status -ne "RUNNING" -or $CurrentAction -lt 1) {
+        $script:lastProgressAction = $CurrentAction
+        $script:lastProgressAt = [DateTime]::Now
+        return [ordered]@{
+            stalled = $false
+            seconds = 0
+            threshold_seconds = $StallSeconds
+        }
+    }
+
+    if ($CurrentAction -ne $script:lastProgressAction) {
+        $script:lastProgressAction = $CurrentAction
+        $script:lastProgressAt = [DateTime]::Now
+    }
+
+    $seconds = [Math]::Round(([DateTime]::Now - $script:lastProgressAt).TotalSeconds, 1)
+    [ordered]@{
+        stalled = $seconds -ge $StallSeconds
+        seconds = $seconds
+        threshold_seconds = $StallSeconds
+    }
 }
 
 function Write-BuildStatus {
@@ -150,6 +226,83 @@ function Get-ErrorLines {
     @($foundErrors)
 }
 
+function Test-ErrorLine {
+    param([string]$Line)
+
+    $patterns = @(
+        "fatal error .+",
+        "error\s+(?:C|LNK|MSB|CS)\d+:.+",
+        "UHT Error:.+",
+        "UnrealHeaderTool.+Error:.+",
+        ":\s*error:.+",
+        "BuildException:.+"
+    )
+
+    foreach ($pattern in $patterns) {
+        if ($Line -match $pattern) {
+            return $true
+        }
+    }
+
+    $false
+}
+
+function Get-ErrorType {
+    param([string]$ErrorLine)
+
+    if (!$ErrorLine) {
+        return "None"
+    }
+
+    if ($ErrorLine -match "UHT|UnrealHeaderTool") {
+        return "UHT"
+    }
+    if ($ErrorLine -match "LNK\d+") {
+        return "Linker"
+    }
+    if ($ErrorLine -match "MSB\d+") {
+        return "MSBuild"
+    }
+    if ($ErrorLine -match "error\s+(?:C|CS)\d+|fatal error") {
+        return "Compiler"
+    }
+    if ($ErrorLine -match "BuildException") {
+        return "BuildTool"
+    }
+
+    "Unknown"
+}
+
+function Get-ErrorContext {
+    param([string[]]$Lines)
+
+    $errorIndex = -1
+    for ($index = 0; $index -lt $Lines.Count; $index++) {
+        if (Test-ErrorLine -Line $Lines[$index]) {
+            $errorIndex = $index
+            break
+        }
+    }
+
+    if ($errorIndex -lt 0) {
+        return @()
+    }
+
+    $start = [Math]::Max(0, $errorIndex - $ErrorContextLines)
+    $end = [Math]::Min($Lines.Count - 1, $errorIndex + $ErrorContextLines)
+    $context = @()
+
+    for ($index = $start; $index -le $end; $index++) {
+        $context += [pscustomobject]@{
+            line = $index + 1
+            text = $Lines[$index]
+            is_error = $index -eq $errorIndex
+        }
+    }
+
+    @($context)
+}
+
 function Get-BuildStatusFromLog {
     param(
         [string[]]$Lines,
@@ -201,6 +354,9 @@ function Get-BuildStatusFromLog {
     }
 
     $errors = @(Get-ErrorLines -Lines $Lines)
+    $firstError = $errors | Select-Object -First 1
+    $errorType = Get-ErrorType -ErrorLine $firstError
+    $errorContext = @(Get-ErrorContext -Lines $Lines)
     if ($errors.Count -gt 0) {
         $status = "FAILED"
         $stage = "Failed"
@@ -233,8 +389,10 @@ function Get-BuildStatusFromLog {
         -TotalActions $totalActions `
         -Progress $progress `
         -ElapsedTime ("{0:hh\:mm\:ss}" -f $Elapsed) `
-        -FirstError ($errors | Select-Object -First 1) `
-        -Errors $errors
+        -FirstError $firstError `
+        -Errors $errors `
+        -ErrorType $errorType `
+        -ErrorContext $errorContext
 }
 
 function Update-SlowFileTracking {
@@ -283,6 +441,10 @@ function Update-BuildHistory {
         elapsed_time = $StatusData.elapsed_time
         total_actions = $StatusData.total_actions
         first_error = $StatusData.first_error
+        error_type = $StatusData.error_type
+        error_context = @($StatusData.error_context)
+        slow_files = @($StatusData.slow_files)
+        git_info = $StatusData.git_info
         completed_at = $StatusData.last_update
     }
 
@@ -435,6 +597,81 @@ function Send-WebhookTarget {
     }
 }
 
+function Send-LocalNotifications {
+    param([System.Collections.IDictionary]$StatusData)
+
+    $status = [string]$StatusData.status
+    if ($status -eq "RUNNING") {
+        $script:lastToastKey = ""
+        $script:lastSoundKey = ""
+        return
+    }
+
+    if ($terminalStatuses -notcontains $status) {
+        return
+    }
+
+    $key = "$ProjectName|$status"
+    $title = "$ProjectName build $status"
+    $message = if ($StatusData.first_error) {
+        [string]$StatusData.first_error
+    } else {
+        "Finished in $($StatusData.elapsed_time)."
+    }
+
+    if ($EnableWindowsToast -and $key -ne $script:lastToastKey) {
+        $script:lastToastKey = $key
+        Show-WindowsNotification -Title $title -Message $message
+    }
+
+    if ($EnableSound -and $key -ne $script:lastSoundKey) {
+        $script:lastSoundKey = $key
+        Play-BuildSound -Status $status
+    }
+}
+
+function Show-WindowsNotification {
+    param(
+        [string]$Title,
+        [string]$Message
+    )
+
+    try {
+        $burntToast = Get-Command New-BurntToastNotification -ErrorAction SilentlyContinue
+        if ($burntToast) {
+            New-BurntToastNotification -Text $Title, $Message | Out-Null
+            return
+        }
+
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+        $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
+        $notifyIcon.Icon = [System.Drawing.SystemIcons]::Information
+        $notifyIcon.Visible = $true
+        $notifyIcon.ShowBalloonTip(5000, $Title, $Message, [System.Windows.Forms.ToolTipIcon]::Info)
+        Start-Sleep -Milliseconds 250
+        $notifyIcon.Dispose()
+    } catch {
+        Write-Warning "Windows notification failed: $($_.Exception.Message)"
+    }
+}
+
+function Play-BuildSound {
+    param([string]$Status)
+
+    try {
+        if ($Status -eq "SUCCEEDED") {
+            [Console]::Beep(880, 160)
+            [Console]::Beep(1175, 180)
+        } else {
+            [Console]::Beep(440, 220)
+            [Console]::Beep(330, 260)
+        }
+    } catch {
+        Write-Warning "Sound notification failed: $($_.Exception.Message)"
+    }
+}
+
 if ($PollSeconds -lt 1) {
     throw "PollSeconds must be 1 or greater."
 }
@@ -448,6 +685,9 @@ $history = @(Read-History) | Select-Object -First $HistoryLimit
 Write-Host "Monitoring Unreal Build Tool log:" -ForegroundColor Cyan
 Write-Host "  Project: $ProjectName"
 Write-Host "  Log:     $LogPath"
+if ($GitRepoPath) {
+    Write-Host "  Git:     $GitRepoPath"
+}
 Write-Host "  Output:  $StatusJsPath"
 if (!$NoJson) {
     Write-Host "  JSON:    $StatusJsonPath"
@@ -476,7 +716,9 @@ while ($true) {
             -Progress 0 `
             -ElapsedTime ("{0:hh\:mm\:ss}" -f $elapsed) `
             -FirstError "" `
-            -Errors @()
+            -Errors @() `
+            -ErrorType "None" `
+            -ErrorContext @()
     }
 
     Update-SlowFileTracking -StatusData $statusData
@@ -484,6 +726,7 @@ while ($true) {
     Update-BuildHistory -StatusData $statusData
     $statusData.history = @($history)
     Send-WebhookNotification -StatusData $statusData
+    Send-LocalNotifications -StatusData $statusData
     Write-BuildStatus -StatusData $statusData
     Start-Sleep -Seconds $PollSeconds
 }

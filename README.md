@@ -10,8 +10,14 @@ Real-time static dashboard for watching Unreal Build Tool progress from a browse
 - Watches the Unreal Build Tool log with a small PowerShell script
 - Shows build stage, progress, elapsed time, active file, and action count
 - Extracts first-cause-style error summary lines from failed builds
+- Shows nearby log context around the first error
+- Classifies failures as UHT, Compiler, Linker, MSBuild, BuildTool, or Unknown
+- Detects stalled builds when the current action stops changing
+- Shows optional Git branch, commit, and dirty state
 - Keeps recent build history and slow-file timing data
+- Opens build history details in a modal
 - Supports browser notifications, Discord webhooks, and Slack webhooks
+- Supports opt-in local Windows notifications and sound cues from `monitor.ps1`
 - Supports project presets through `config.js`
 - Includes a lightweight local web server helper for `http://localhost`
 
@@ -73,6 +79,14 @@ Use PowerShell options to customize where build data comes from or where it is w
 ```
 
 ```powershell
+.\monitor.ps1 -GitRepoPath "D:\Unreal Projects\MyGame" -StallSeconds 180
+```
+
+```powershell
+.\monitor.ps1 -EnableWindowsToast -EnableSound
+```
+
+```powershell
 .\monitor.ps1 -NoJson -NoHistory
 ```
 
@@ -124,6 +138,10 @@ http://localhost:4173
 - `build_status.js` - browser-readable sample/status payload
 - `build_status.json` - optional JSON sample/status payload
 - `build_history.json` - persisted recent-build history
+
+## Deliberately Deferred
+
+The dashboard does not execute build commands yet. Running local build commands from a browser needs an explicit allowlist and local-only safety model before it should ship.
 
 ## Notes
 

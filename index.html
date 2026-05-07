@@ -97,14 +97,39 @@
                             <p id="completedActions" class="stat-value">0 / 0</p>
                         </div>
                     </div>
+
+                    <div id="stallCard" class="card glass stat-card hidden">
+                        <div class="stat-icon stall">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Stall Watch</p>
+                            <p id="stallStatus" class="stat-value">Moving</p>
+                        </div>
+                    </div>
+
+                    <div id="gitCard" class="card glass stat-card hidden">
+                        <div class="stat-icon git">
+                            <i class="fa-solid fa-code-branch"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Git Revision</p>
+                            <p id="gitInfo" class="stat-value">N/A</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="errorPanel" class="card glass insight-card hidden">
                     <div class="insight-header">
                         <span><i class="fa-solid fa-triangle-exclamation"></i> Error Summary</span>
+                        <span id="errorTypeBadge" class="error-type-badge">Unknown</span>
                     </div>
                     <p id="firstError" class="error-line">No errors detected.</p>
                     <ul id="errorList" class="compact-list"></ul>
+                    <details id="errorContextDetails" class="error-context-details">
+                        <summary>Show nearby log context</summary>
+                        <pre id="errorContextLog"></pre>
+                    </details>
                 </div>
 
                 <div class="insight-grid">
@@ -163,6 +188,21 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <div id="historyModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <div>
+                    <p class="modal-kicker">Build History</p>
+                    <h2 id="historyModalTitle">Build details</h2>
+                </div>
+                <button id="closeHistoryModal" type="button" aria-label="Close build details">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="historyModalContent" class="modal-content"></div>
+        </div>
     </div>
 
     <script src="config.js"></script>

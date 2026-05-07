@@ -344,6 +344,20 @@ body {
     color: #c8d0d8;
 }
 
+.stat-icon.stall {
+    background: rgba(254, 202, 87, 0.1);
+    color: #feca57;
+}
+
+.stat-icon.git {
+    background: rgba(46, 213, 115, 0.1);
+    color: #2ed573;
+}
+
+.stat-card.stalled {
+    border-color: rgba(254, 202, 87, 0.35);
+}
+
 .stat-info .stat-label {
     font-size: 12px;
     color: var(--text-secondary);
@@ -405,6 +419,59 @@ body {
     word-break: break-word;
 }
 
+.error-type-badge {
+    padding: 4px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.error-type-badge.compiler {
+    color: #ff6b81;
+    border-color: rgba(255, 107, 129, 0.25);
+}
+
+.error-type-badge.linker,
+.error-type-badge.msbuild,
+.error-type-badge.uht,
+.error-type-badge.buildtool {
+    color: #feca57;
+    border-color: rgba(254, 202, 87, 0.25);
+}
+
+.error-context-details {
+    margin-top: 14px;
+}
+
+.error-context-details summary {
+    cursor: pointer;
+    color: var(--neon-blue);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.error-context-details pre,
+.modal-content pre {
+    max-height: 260px;
+    margin-top: 10px;
+    padding: 12px;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.28);
+    color: #c8d0d8;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+
+.context-error {
+    color: #ff6b81;
+    font-weight: 700;
+}
+
 .compact-list {
     display: flex;
     flex-direction: column;
@@ -421,6 +488,21 @@ body {
     color: var(--text-secondary);
     font-size: 12px;
     line-height: 1.35;
+}
+
+.history-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
 .compact-list .list-main {
@@ -530,6 +612,105 @@ body {
     justify-content: flex-start;
 }
 
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.72);
+}
+
+.modal-card {
+    width: min(760px, 100%);
+    max-height: min(760px, 90vh);
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgba(18, 18, 24, 0.92);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modal-kicker {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.modal-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 22px;
+}
+
+.modal-header button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.modal-content {
+    display: flex;
+    max-height: calc(90vh - 86px);
+    flex-direction: column;
+    gap: 18px;
+    overflow: auto;
+    padding: 22px;
+}
+
+.modal-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.modal-metrics div {
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.modal-metrics span,
+.modal-content h3 {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.modal-metrics strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+}
+
+.modal-content p,
+.modal-content li {
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.modal-content ul {
+    margin-top: 8px;
+    padding-left: 18px;
+}
+
 /* Linear Progress Detail */
 .linear-progress-details {
     width: 100%;
@@ -583,6 +764,9 @@ body {
     .webhook-actions {
         align-items: flex-start;
         flex-direction: column;
+    }
+    .modal-metrics {
+        grid-template-columns: 1fr 1fr;
     }
     .active-file-content .file-name {
         max-width: 300px;

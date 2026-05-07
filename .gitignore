@@ -3,3 +3,4 @@
 .DS_Store
 Thumbs.db
 webhook_settings.json
+.omx/
