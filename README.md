@@ -31,3 +31,4 @@ The script reads:
 
 and writes a local `build_status.js` next to the dashboard files, so the page can update even when opened through `file://`.
 
+<img width="1866" height="960" alt="image" src="https://github.com/user-attachments/assets/3e0960a8-dc08-40f3-a3c0-ce29824621ba" />
