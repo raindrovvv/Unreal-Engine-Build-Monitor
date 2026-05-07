@@ -1,9 +1,9 @@
-﻿window.buildStatus = {
-    "total_actions": 12,
-    "current_action": 11,
-    "current_file": "Build complete! Launching Unreal Editor...",
-    "progress": 100,
-    "status": "SUCCEEDED",
-    "elapsed_time": "39:22",
-    "last_update": "2026-05-07 19:40:05"
+window.buildStatus = {
+    "total_actions": 0,
+    "current_action": 0,
+    "current_file": "Run monitor.ps1 to start watching Unreal Build Tool.",
+    "progress": 0,
+    "status": "WAITING",
+    "elapsed_time": "00:00:00",
+    "last_update": "N/A"
 };

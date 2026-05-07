@@ -135,6 +135,13 @@ body {
     box-shadow: 0 0 15px rgba(255, 71, 87, 0.15);
 }
 
+.status-badge.waiting {
+    background: rgba(154, 160, 166, 0.08);
+    color: var(--text-secondary);
+    border-color: rgba(154, 160, 166, 0.2);
+    box-shadow: 0 0 15px rgba(154, 160, 166, 0.08);
+}
+
 .pulse-dot {
     width: 8px;
     height: 8px;

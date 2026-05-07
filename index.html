@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unreal Build Real-time Monitor</title>
+    <title>Unreal Build Monitor</title>
     <!-- Premium Typography & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,8 +20,8 @@
                     <i class="fa-solid fa-bolt-lightning text-glow"></i>
                 </div>
                 <div class="brand-text">
-                    <h1>GAS Build Monitor</h1>
-                    <p>Unreal Engine 5.7 Real-time Compilation Status</p>
+                    <h1 id="appTitle">Unreal Build Monitor</h1>
+                    <p id="appSubtitle">Real-time Unreal Engine Compilation Status</p>
                 </div>
             </div>
             <div class="status-badge-container">
@@ -68,7 +68,7 @@
                     </div>
                     <div class="active-file-content">
                         <h3>Currently Compiling File</h3>
-                        <p id="activeFileName" class="file-name">Initializing...</p>
+                        <p id="activeFileName" class="file-name">Waiting for build log...</p>
                     </div>
                 </div>
 
@@ -103,6 +103,7 @@
         </main>
     </div>
 
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
