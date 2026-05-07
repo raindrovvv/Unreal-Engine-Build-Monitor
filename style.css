@@ -27,6 +27,7 @@ body {
     align-items: center;
     overflow-x: hidden;
     position: relative;
+    padding: 48px 0;
 }
 
 /* Cosmic Background Particles */
@@ -48,7 +49,7 @@ body {
 /* Main Layout Wrapper */
 .dashboard-container {
     width: 90%;
-    max-width: 960px;
+    max-width: 1120px;
     position: relative;
     z-index: 10;
 }
@@ -96,6 +97,25 @@ body {
     font-size: 13px;
     color: var(--text-secondary);
     margin-top: 2px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.project-select {
+    min-width: 160px;
+    max-width: 240px;
+    padding: 8px 32px 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(18, 18, 24, 0.8);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 12px;
+    outline: none;
 }
 
 /* Status Badges */
@@ -176,6 +196,7 @@ body {
     display: grid;
     grid-template-columns: 280px 1fr;
     gap: 24px;
+    align-items: start;
 }
 
 /* Progress Circular Card */
@@ -235,6 +256,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+.hidden {
+    display: none !important;
 }
 
 /* Active File Card */
@@ -314,6 +339,11 @@ body {
     color: #00f2fe;
 }
 
+.stat-icon.stage {
+    background: rgba(255, 255, 255, 0.06);
+    color: #c8d0d8;
+}
+
 .stat-info .stat-label {
     font-size: 12px;
     color: var(--text-secondary);
@@ -338,6 +368,80 @@ body {
 
 .footer-sync-card i {
     margin-right: 6px;
+}
+
+.insight-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.insight-card {
+    padding: 18px 20px;
+}
+
+.insight-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+.insight-header i {
+    margin-right: 8px;
+}
+
+.error-line {
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.compact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    list-style: none;
+    margin-top: 10px;
+}
+
+.compact-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.compact-list .list-main {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.compact-list li.succeeded .list-main {
+    color: #2ed573;
+}
+
+.compact-list li.failed .list-main {
+    color: #ff4757;
+}
+
+.empty-list li {
+    justify-content: flex-start;
 }
 
 /* Linear Progress Detail */
@@ -365,10 +469,26 @@ body {
 
 /* Responsiveness */
 @media (max-width: 768px) {
+    body {
+        padding: 32px 0;
+        align-items: flex-start;
+    }
+    .dashboard-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
     .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .insight-grid {
         grid-template-columns: 1fr;
     }
     .active-file-content .file-name {

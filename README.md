@@ -8,9 +8,14 @@ Real-time static dashboard for watching Unreal Build Tool progress from a browse
 
 - Works as a static page opened through `file://`
 - Watches the Unreal Build Tool log with a small PowerShell script
-- Configurable dashboard title, subtitle, status payload path, and refresh interval
-- Configurable log path for custom Unreal or CI workflows
-- Writes both `build_status.js` for the browser and `build_status.json` for other tools
+- Shows build stage, progress, elapsed time, active file, and action count
+- Extracts first-cause-style error summary lines from failed builds
+- Keeps recent build history and slow-file timing data
+- Supports browser notifications and optional webhook notifications
+- Supports project presets through `config.js`
+- Includes a lightweight local web server helper for `http://localhost`
+
+<img width="1866" height="960" alt="image" src="https://github.com/user-attachments/assets/3e0960a8-dc08-40f3-a3c0-ce29824621ba" />
 
 ## Quick Start
 
@@ -30,9 +35,7 @@ By default, the script reads:
 %LOCALAPPDATA%\UnrealBuildTool\Log.txt
 ```
 
-and writes `build_status.js` next to the dashboard files.
-
-<img width="1866" height="960" alt="image" src="https://github.com/user-attachments/assets/3e0960a8-dc08-40f3-a3c0-ce29824621ba" />
+and writes `build_status.js`, `build_status.json`, and `build_history.json` next to the dashboard files.
 
 ## Configuration
 
@@ -40,17 +43,29 @@ Edit `config.js` to customize the browser dashboard:
 
 ```js
 window.buildMonitorConfig = {
-    title: 'My Project Build Monitor',
-    subtitle: 'Unreal Engine 5.x Compilation Status',
+    title: 'Unreal Build Monitor',
+    subtitle: 'Real-time Unreal Engine Compilation Status',
     statusFile: 'build_status.js',
-    refreshMs: 1000
+    refreshMs: 1000,
+    notifications: {
+        browser: true
+    },
+    projects: [
+        {
+            id: 'game',
+            name: 'My Game',
+            title: 'My Game Build Monitor',
+            subtitle: 'Unreal Engine Compilation Status',
+            statusFile: 'build_status.js'
+        }
+    ]
 };
 ```
 
 Use PowerShell options to customize where build data comes from or where it is written:
 
 ```powershell
-.\monitor.ps1 -LogPath "D:\Logs\UnrealBuildTool.log"
+.\monitor.ps1 -ProjectName "My Game" -LogPath "D:\Logs\UnrealBuildTool.log"
 ```
 
 ```powershell
@@ -58,18 +73,38 @@ Use PowerShell options to customize where build data comes from or where it is w
 ```
 
 ```powershell
-.\monitor.ps1 -NoJson
+.\monitor.ps1 -WebhookUrl "https://discord.com/api/webhooks/..."
+```
+
+```powershell
+.\monitor.ps1 -NoJson -NoHistory
+```
+
+## Local Server Mode
+
+The dashboard works from disk, but a local server is useful for phones, tablets, or cleaner browser permissions:
+
+```powershell
+.\serve.ps1 -Port 4173
+```
+
+Then open:
+
+```text
+http://localhost:4173
 ```
 
 ## Files
 
 - `index.html` - dashboard shell
-- `style.css` - glass/neon monitor styling
-- `config.js` - user-facing dashboard settings
-- `app.js` - refreshes the status payload every second by default
+- `style.css` - dashboard styling
+- `config.js` - dashboard settings and project presets
+- `app.js` - reads status payloads and renders the dashboard
 - `monitor.ps1` - tails the Unreal Build Tool log and writes status files
+- `serve.ps1` - optional local static server helper
 - `build_status.js` - browser-readable sample/status payload
 - `build_status.json` - optional JSON sample/status payload
+- `build_history.json` - persisted recent-build history
 
 ## Notes
 
