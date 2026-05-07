@@ -18,6 +18,12 @@ const firstError = document.getElementById('firstError');
 const errorList = document.getElementById('errorList');
 const historyList = document.getElementById('historyList');
 const slowFilesList = document.getElementById('slowFilesList');
+const discordWebhookUrl = document.getElementById('discordWebhookUrl');
+const discordWebhookEnabled = document.getElementById('discordWebhookEnabled');
+const slackWebhookUrl = document.getElementById('slackWebhookUrl');
+const slackWebhookEnabled = document.getElementById('slackWebhookEnabled');
+const saveWebhookSettings = document.getElementById('saveWebhookSettings');
+const webhookSettingsStatus = document.getElementById('webhookSettingsStatus');
 
 const config = window.buildMonitorConfig || {};
 const projects = Array.isArray(config.projects) && config.projects.length
@@ -30,6 +36,7 @@ let statusFile = config.statusFile || activeProject.statusFile || 'build_status.
 let refreshMs = Number(config.refreshMs || activeProject.refreshMs || 1000);
 let lastTerminalNotification = null;
 let pollTimer = null;
+let webhookSettingsSaveTimer = null;
 
 function clampPercent(percent) {
     return Math.max(0, Math.min(100, Number(percent) || 0));
@@ -71,6 +78,83 @@ function setupProjectSelect() {
         applyProject(selected);
         fetchStatus();
     });
+}
+
+function getWebhookSettingsFromForm() {
+    return {
+        discord: {
+            enabled: discordWebhookEnabled.checked,
+            url: discordWebhookUrl.value.trim()
+        },
+        slack: {
+            enabled: slackWebhookEnabled.checked,
+            url: slackWebhookUrl.value.trim()
+        }
+    };
+}
+
+function applyWebhookSettings(settings) {
+    const discord = settings.discord || {};
+    const slack = settings.slack || {};
+    discordWebhookEnabled.checked = Boolean(discord.enabled);
+    discordWebhookUrl.value = discord.url || '';
+    slackWebhookEnabled.checked = Boolean(slack.enabled);
+    slackWebhookUrl.value = slack.url || '';
+}
+
+function setWebhookStatus(message, tone = 'muted') {
+    webhookSettingsStatus.textContent = message;
+    webhookSettingsStatus.className = tone;
+}
+
+async function loadWebhookSettings() {
+    try {
+        const response = await fetch('api/webhooks', { cache: 'no-store' });
+        if (!response.ok) throw new Error('API unavailable');
+        const settings = await response.json();
+        applyWebhookSettings(settings);
+        setWebhookStatus('Settings loaded from webhook_settings.json.', 'success');
+    } catch {
+        const local = window.localStorage.getItem('buildMonitorWebhookSettings');
+        if (local) {
+            applyWebhookSettings(JSON.parse(local));
+            setWebhookStatus('Loaded browser-only settings. Start with serve.ps1 to save for monitor.ps1.', 'warning');
+        } else {
+            setWebhookStatus('Use serve.ps1 to save webhook settings for monitor.ps1.', 'warning');
+        }
+    }
+}
+
+async function saveWebhookSettingsToServer() {
+    const settings = getWebhookSettingsFromForm();
+    window.localStorage.setItem('buildMonitorWebhookSettings', JSON.stringify(settings));
+
+    try {
+        const response = await fetch('api/webhooks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        setWebhookStatus('Saved to webhook_settings.json. monitor.ps1 will use it on the next terminal build result.', 'success');
+    } catch {
+        setWebhookStatus('Saved only in this browser. Start with serve.ps1 to write webhook_settings.json.', 'warning');
+    }
+}
+
+function setupWebhookSettings() {
+    saveWebhookSettings.addEventListener('click', saveWebhookSettingsToServer);
+
+    [discordWebhookUrl, discordWebhookEnabled, slackWebhookUrl, slackWebhookEnabled].forEach((element) => {
+        element.addEventListener('input', () => {
+            window.clearTimeout(webhookSettingsSaveTimer);
+            webhookSettingsSaveTimer = window.setTimeout(() => {
+                window.localStorage.setItem('buildMonitorWebhookSettings', JSON.stringify(getWebhookSettingsFromForm()));
+            }, 250);
+        });
+    });
+
+    loadWebhookSettings();
 }
 
 function setProgress(percent) {
@@ -245,5 +329,6 @@ function scheduleNextFetch() {
 }
 
 setupProjectSelect();
+setupWebhookSettings();
 applyProject(activeProject);
 fetchStatus();

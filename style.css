@@ -436,6 +436,92 @@ body {
     color: #2ed573;
 }
 
+.webhook-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 18px;
+    align-items: end;
+}
+
+.webhook-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.webhook-field span,
+.webhook-toggle span {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.webhook-field input {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background: rgba(7, 7, 10, 0.7);
+    color: var(--text-primary);
+    font: inherit;
+    outline: none;
+}
+
+.webhook-field input:focus {
+    border-color: rgba(0, 242, 254, 0.3);
+}
+
+.webhook-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    white-space: nowrap;
+}
+
+.webhook-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--neon-blue);
+}
+
+.webhook-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.webhook-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid rgba(0, 242, 254, 0.2);
+    border-radius: 10px;
+    background: rgba(0, 242, 254, 0.08);
+    color: var(--neon-blue);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.webhook-actions span {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.webhook-actions span.success {
+    color: #2ed573;
+}
+
+.webhook-actions span.warning {
+    color: #feca57;
+}
+
 .compact-list li.failed .list-main {
     color: #ff4757;
 }
@@ -490,6 +576,13 @@ body {
     }
     .insight-grid {
         grid-template-columns: 1fr;
+    }
+    .webhook-grid {
+        grid-template-columns: 1fr;
+    }
+    .webhook-actions {
+        align-items: flex-start;
+        flex-direction: column;
     }
     .active-file-content .file-name {
         max-width: 300px;

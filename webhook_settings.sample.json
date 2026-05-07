@@ -1,0 +1,10 @@
+{
+  "discord": {
+    "enabled": false,
+    "url": ""
+  },
+  "slack": {
+    "enabled": false,
+    "url": ""
+  }
+}

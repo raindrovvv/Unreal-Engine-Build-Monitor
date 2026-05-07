@@ -127,6 +127,37 @@
                     </div>
                 </div>
 
+                <div class="card glass insight-card">
+                    <div class="insight-header">
+                        <span><i class="fa-solid fa-bell"></i> Webhook Notifications</span>
+                    </div>
+                    <div class="webhook-grid">
+                        <label class="webhook-field">
+                            <span>Discord Webhook URL</span>
+                            <input id="discordWebhookUrl" type="password" placeholder="https://discord.com/api/webhooks/..." autocomplete="off">
+                        </label>
+                        <label class="webhook-toggle">
+                            <input id="discordWebhookEnabled" type="checkbox">
+                            <span>Discord enabled</span>
+                        </label>
+                        <label class="webhook-field">
+                            <span>Slack Webhook URL</span>
+                            <input id="slackWebhookUrl" type="password" placeholder="https://hooks.slack.com/services/..." autocomplete="off">
+                        </label>
+                        <label class="webhook-toggle">
+                            <input id="slackWebhookEnabled" type="checkbox">
+                            <span>Slack enabled</span>
+                        </label>
+                    </div>
+                    <div class="webhook-actions">
+                        <button id="saveWebhookSettings" type="button">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Save Webhooks
+                        </button>
+                        <span id="webhookSettingsStatus">Use serve.ps1 to save from the dashboard.</span>
+                    </div>
+                </div>
+
                 <div class="card glass footer-sync-card">
                     <p><i class="fa-solid fa-rotate"></i> Last sync: <span id="lastUpdate">N/A</span></p>
                 </div>

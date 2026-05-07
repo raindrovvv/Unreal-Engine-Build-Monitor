@@ -3,13 +3,16 @@ param(
     [string]$StatusJsPath = (Join-Path $PSScriptRoot "build_status.js"),
     [string]$StatusJsonPath = (Join-Path $PSScriptRoot "build_status.json"),
     [string]$HistoryJsonPath = (Join-Path $PSScriptRoot "build_history.json"),
+    [string]$WebhookSettingsPath = (Join-Path $PSScriptRoot "webhook_settings.json"),
     [string]$ProjectName = "Unreal Project",
     [int]$PollSeconds = 1,
     [int]$HistoryLimit = 10,
     [int]$SlowFileLimit = 5,
     [switch]$NoJson,
     [switch]$NoHistory,
-    [string]$WebhookUrl = ""
+    [string]$WebhookUrl = "",
+    [ValidateSet("discord", "slack")]
+    [string]$WebhookProvider = "discord"
 )
 
 $ErrorActionPreference = "Stop"
@@ -291,13 +294,37 @@ function Update-BuildHistory {
 function Send-WebhookNotification {
     param([System.Collections.IDictionary]$StatusData)
 
-    if (!$WebhookUrl) {
-        return
-    }
-
     $status = [string]$StatusData.status
     if ($status -eq "RUNNING") {
         $script:lastNotificationKey = ""
+        return
+    }
+
+    $settings = Get-WebhookSettings
+    $targets = @()
+    if ($WebhookUrl) {
+        $targets += [ordered]@{
+            provider = $WebhookProvider
+            url = $WebhookUrl
+            enabled = $true
+        }
+    }
+    if ($settings.discord.enabled -and $settings.discord.url) {
+        $targets += [ordered]@{
+            provider = "discord"
+            url = $settings.discord.url
+            enabled = $true
+        }
+    }
+    if ($settings.slack.enabled -and $settings.slack.url) {
+        $targets += [ordered]@{
+            provider = "slack"
+            url = $settings.slack.url
+            enabled = $true
+        }
+    }
+
+    if ($targets.Count -lt 1) {
         return
     }
 
@@ -311,15 +338,100 @@ function Send-WebhookNotification {
     }
 
     $script:lastNotificationKey = $key
-    $message = "$ProjectName build $status in $($StatusData.elapsed_time)."
-    if ($StatusData.first_error) {
-        $message = "$message $($StatusData.first_error)"
+
+    foreach ($target in $targets) {
+        Send-WebhookTarget -Provider $target.provider -Url $target.url -StatusData $StatusData
+    }
+}
+
+function Get-WebhookSettings {
+    $emptySettings = [pscustomobject]@{
+        discord = [pscustomobject]@{ enabled = $false; url = "" }
+        slack = [pscustomobject]@{ enabled = $false; url = "" }
+    }
+
+    if (!(Test-Path $WebhookSettingsPath)) {
+        return $emptySettings
     }
 
     try {
-        Invoke-RestMethod -Uri $WebhookUrl -Method Post -ContentType "application/json" -Body (@{ content = $message; text = $message } | ConvertTo-Json) | Out-Null
+        $settings = Get-Content $WebhookSettingsPath -Raw | ConvertFrom-Json
+        if ($null -eq $settings.discord) {
+            $settings | Add-Member -NotePropertyName discord -NotePropertyValue $emptySettings.discord
+        }
+        if ($null -eq $settings.slack) {
+            $settings | Add-Member -NotePropertyName slack -NotePropertyValue $emptySettings.slack
+        }
+        return $settings
     } catch {
-        Write-Warning "Webhook notification failed: $($_.Exception.Message)"
+        Write-Warning "Could not read webhook settings: $WebhookSettingsPath"
+        return $emptySettings
+    }
+}
+
+function Send-WebhookTarget {
+    param(
+        [string]$Provider,
+        [string]$Url,
+        [System.Collections.IDictionary]$StatusData
+    )
+
+    $status = [string]$StatusData.status
+    $summary = "$ProjectName build $status in $($StatusData.elapsed_time)."
+    $detail = if ($StatusData.first_error) { [string]$StatusData.first_error } else { [string]$StatusData.current_file }
+
+    if ($Provider -eq "slack") {
+        $payload = @{
+            text = $summary
+            blocks = @(
+                @{
+                    type = "header"
+                    text = @{
+                        type = "plain_text"
+                        text = "$ProjectName build $status"
+                    }
+                },
+                @{
+                    type = "section"
+                    fields = @(
+                        @{ type = "mrkdwn"; text = "*Status:*`n$status" },
+                        @{ type = "mrkdwn"; text = "*Elapsed:*`n$($StatusData.elapsed_time)" },
+                        @{ type = "mrkdwn"; text = "*Stage:*`n$($StatusData.stage)" },
+                        @{ type = "mrkdwn"; text = "*Actions:*`n$($StatusData.current_action) / $($StatusData.total_actions)" }
+                    )
+                },
+                @{
+                    type = "section"
+                    text = @{
+                        type = "mrkdwn"
+                        text = "*Summary:*`n$detail"
+                    }
+                }
+            )
+        }
+    } else {
+        $color = if ($status -eq "SUCCEEDED") { 3066993 } else { 15158332 }
+        $payload = @{
+            content = $summary
+            embeds = @(
+                @{
+                    title = "$ProjectName build $status"
+                    description = $detail
+                    color = $color
+                    fields = @(
+                        @{ name = "Stage"; value = [string]$StatusData.stage; inline = $true },
+                        @{ name = "Elapsed"; value = [string]$StatusData.elapsed_time; inline = $true },
+                        @{ name = "Actions"; value = "$($StatusData.current_action) / $($StatusData.total_actions)"; inline = $true }
+                    )
+                }
+            )
+        }
+    }
+
+    try {
+        Invoke-RestMethod -Uri $Url -Method Post -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 8) | Out-Null
+    } catch {
+        Write-Warning "$Provider webhook notification failed: $($_.Exception.Message)"
     }
 }
 
@@ -343,6 +455,7 @@ if (!$NoJson) {
 if (!$NoHistory) {
     Write-Host "  History: $HistoryJsonPath"
 }
+Write-Host "  Webhook settings: $WebhookSettingsPath"
 Write-Host "Press Ctrl+C to stop." -ForegroundColor DarkGray
 
 $startTime = [DateTime]::Now

@@ -11,7 +11,7 @@ Real-time static dashboard for watching Unreal Build Tool progress from a browse
 - Shows build stage, progress, elapsed time, active file, and action count
 - Extracts first-cause-style error summary lines from failed builds
 - Keeps recent build history and slow-file timing data
-- Supports browser notifications and optional webhook notifications
+- Supports browser notifications, Discord webhooks, and Slack webhooks
 - Supports project presets through `config.js`
 - Includes a lightweight local web server helper for `http://localhost`
 
@@ -73,12 +73,30 @@ Use PowerShell options to customize where build data comes from or where it is w
 ```
 
 ```powershell
-.\monitor.ps1 -WebhookUrl "https://discord.com/api/webhooks/..."
+.\monitor.ps1 -NoJson -NoHistory
+```
+
+## Webhook Notifications
+
+The easiest setup path is the local server mode:
+
+```powershell
+.\serve.ps1 -Port 4173
+```
+
+Open `http://localhost:4173`, paste your Discord or Slack webhook URL in the Webhook Notifications panel, enable it, and click **Save Webhooks**. The dashboard writes `webhook_settings.json`, and `monitor.ps1` reads it automatically.
+
+You can still pass a webhook from the command line:
+
+```powershell
+.\monitor.ps1 -WebhookProvider discord -WebhookUrl "https://discord.com/api/webhooks/..."
 ```
 
 ```powershell
-.\monitor.ps1 -NoJson -NoHistory
+.\monitor.ps1 -WebhookProvider slack -WebhookUrl "https://hooks.slack.com/services/..."
 ```
+
+Discord notifications use embeds. Slack notifications use Block Kit blocks.
 
 ## Local Server Mode
 
@@ -102,6 +120,7 @@ http://localhost:4173
 - `app.js` - reads status payloads and renders the dashboard
 - `monitor.ps1` - tails the Unreal Build Tool log and writes status files
 - `serve.ps1` - optional local static server helper
+- `webhook_settings.sample.json` - example webhook settings file
 - `build_status.js` - browser-readable sample/status payload
 - `build_status.json` - optional JSON sample/status payload
 - `build_history.json` - persisted recent-build history
