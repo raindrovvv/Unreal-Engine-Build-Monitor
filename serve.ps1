@@ -28,6 +28,26 @@ function Get-DefaultWebhookSettings {
     }
 }
 
+function Test-WebhookUrl {
+    param(
+        [string]$Provider,
+        [string]$Url
+    )
+
+    if (!$Url) {
+        return $true
+    }
+
+    if ($Provider -eq "discord") {
+        return $Url -match '^https://(?:discord\.com|discordapp\.com)/api/webhooks/\d+/[\w-]+$'
+    }
+    if ($Provider -eq "slack") {
+        return $Url -match '^https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+$'
+    }
+
+    $false
+}
+
 function Write-JsonResponse {
     param(
         [System.Net.HttpListenerResponse]$Response,
@@ -61,14 +81,69 @@ function Save-WebhookSettings {
     if ($Settings.discord) {
         $safeSettings.discord.enabled = [bool]$Settings.discord.enabled
         $safeSettings.discord.url = [string]$Settings.discord.url
+        if (!(Test-WebhookUrl -Provider "discord" -Url $safeSettings.discord.url)) {
+            throw "Invalid Discord webhook URL."
+        }
     }
     if ($Settings.slack) {
         $safeSettings.slack.enabled = [bool]$Settings.slack.enabled
         $safeSettings.slack.url = [string]$Settings.slack.url
+        if (!(Test-WebhookUrl -Provider "slack" -Url $safeSettings.slack.url)) {
+            throw "Invalid Slack webhook URL."
+        }
     }
 
     $safeSettings | ConvertTo-Json -Depth 8 | Out-File -FilePath $settingsPath -Encoding utf8 -Force
     $safeSettings
+}
+
+function Send-TestWebhook {
+    param(
+        [string]$Provider,
+        [object]$Settings
+    )
+
+    if ($Provider -notin @("discord", "slack")) {
+        throw "Unsupported webhook provider."
+    }
+
+    $target = $Settings.$Provider
+    if (!$target -or !$target.enabled -or !$target.url) {
+        throw "$Provider webhook is not enabled or URL is empty."
+    }
+    if (!(Test-WebhookUrl -Provider $Provider -Url $target.url)) {
+        throw "Invalid $Provider webhook URL."
+    }
+
+    if ($Provider -eq "slack") {
+        $payload = @{
+            text = "Unreal Build Monitor Slack webhook test."
+            blocks = @(
+                @{
+                    type = "header"
+                    text = @{ type = "plain_text"; text = "Unreal Build Monitor test" }
+                },
+                @{
+                    type = "section"
+                    text = @{ type = "mrkdwn"; text = "Slack webhook settings are saved and reachable." }
+                }
+            )
+        }
+    } else {
+        $payload = @{
+            content = "Unreal Build Monitor Discord webhook test."
+            embeds = @(
+                @{
+                    title = "Unreal Build Monitor test"
+                    description = "Discord webhook settings are saved and reachable."
+                    color = 3066993
+                }
+            )
+        }
+    }
+
+    Invoke-RestMethod -Uri $target.url -Method Post -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 8) | Out-Null
+    @{ ok = $true; provider = $Provider }
 }
 
 function Handle-WebhookApi {
@@ -98,6 +173,23 @@ function Handle-WebhookApi {
     }
 
     Write-JsonResponse -Response $Response -Data @{ error = "Method not allowed" } -StatusCode 405
+}
+
+function Handle-TestWebhookApi {
+    param(
+        [System.Net.HttpListenerRequest]$Request,
+        [System.Net.HttpListenerResponse]$Response
+    )
+
+    if ($Request.HttpMethod -ne "POST") {
+        Write-JsonResponse -Response $Response -Data @{ error = "Method not allowed" } -StatusCode 405
+        return
+    }
+
+    $provider = $Request.QueryString["provider"]
+    $body = Read-RequestBody -Request $Request
+    $settings = $body | ConvertFrom-Json
+    Write-JsonResponse -Response $Response -Data (Send-TestWebhook -Provider $provider -Settings $settings)
 }
 
 function Handle-StaticFile {
@@ -139,6 +231,8 @@ try {
         try {
             if ($context.Request.Url.AbsolutePath -eq "/api/webhooks") {
                 Handle-WebhookApi -Request $context.Request -Response $context.Response
+            } elseif ($context.Request.Url.AbsolutePath -eq "/api/test-webhook") {
+                Handle-TestWebhookApi -Request $context.Request -Response $context.Response
             } else {
                 Handle-StaticFile -Request $context.Request -Response $context.Response
             }

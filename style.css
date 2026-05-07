@@ -555,6 +555,11 @@ body {
     border-color: rgba(0, 242, 254, 0.3);
 }
 
+.webhook-field input.invalid {
+    border-color: rgba(255, 71, 87, 0.65);
+    box-shadow: 0 0 0 1px rgba(255, 71, 87, 0.2);
+}
+
 .webhook-toggle {
     display: flex;
     align-items: center;
@@ -591,6 +596,11 @@ body {
     cursor: pointer;
 }
 
+.webhook-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .webhook-actions span {
     color: var(--text-secondary);
     font-size: 12px;
@@ -602,6 +612,10 @@ body {
 
 .webhook-actions span.warning {
     color: #feca57;
+}
+
+.webhook-actions span.error {
+    color: #ff4757;
 }
 
 .compact-list li.failed .list-main {

@@ -20,20 +20,41 @@ Real-time static dashboard for watching Unreal Build Tool progress from a browse
 - Supports opt-in local Windows notifications and sound cues from `monitor.ps1`
 - Supports project presets through `config.js`
 - Includes a lightweight local web server helper for `http://localhost`
+- Includes `start-dashboard.ps1` to launch the server and monitor together
+- Includes dashboard buttons for testing Discord and Slack webhooks
 
 <img width="1866" height="960" alt="image" src="https://github.com/user-attachments/assets/3e0960a8-dc08-40f3-a3c0-ce29824621ba" />
 
 ## Quick Start
 
+### One-command start
+
+```powershell
+.\start-dashboard.ps1 -ProjectName "My Game" -GitRepoPath "D:\Unreal Projects\MyGame" -OpenBrowser
+```
+
+This starts:
+
+- `serve.ps1` for `http://localhost:4173`
+- `monitor.ps1` for the Unreal Build Tool log
+
+### Manual start
+
 1. Clone the repository.
-2. Run the monitor script in PowerShell:
+2. Run the local dashboard server:
+
+```powershell
+.\serve.ps1 -Port 4173
+```
+
+3. Open `http://localhost:4173`.
+4. Run the monitor script in another PowerShell:
 
 ```powershell
 .\monitor.ps1
 ```
 
-3. Open `index.html` in a browser.
-4. Start an Unreal build.
+5. Start an Unreal build.
 
 By default, the script reads:
 
@@ -100,6 +121,8 @@ The easiest setup path is the local server mode:
 
 Open `http://localhost:4173`, paste your Discord or Slack webhook URL in the Webhook Notifications panel, enable it, and click **Save Webhooks**. The dashboard writes `webhook_settings.json`, and `monitor.ps1` reads it automatically.
 
+Use **Test Discord** and **Test Slack** from the dashboard to verify URLs before waiting for a real build. Invalid webhook URL formats are highlighted before saving.
+
 You can still pass a webhook from the command line:
 
 ```powershell
@@ -134,6 +157,7 @@ http://localhost:4173
 - `app.js` - reads status payloads and renders the dashboard
 - `monitor.ps1` - tails the Unreal Build Tool log and writes status files
 - `serve.ps1` - optional local static server helper
+- `start-dashboard.ps1` - starts the dashboard server and monitor together
 - `webhook_settings.sample.json` - example webhook settings file
 - `build_status.js` - browser-readable sample/status payload
 - `build_status.json` - optional JSON sample/status payload
@@ -142,6 +166,20 @@ http://localhost:4173
 ## Deliberately Deferred
 
 The dashboard does not execute build commands yet. Running local build commands from a browser needs an explicit allowlist and local-only safety model before it should ship.
+
+## Release Packaging
+
+For a GitHub release:
+
+1. Download the source zip from the release page.
+2. Extract it anywhere.
+3. Run:
+
+```powershell
+.\start-dashboard.ps1 -ProjectName "My Game" -GitRepoPath "D:\Unreal Projects\MyGame" -OpenBrowser
+```
+
+4. Configure webhooks from `http://localhost:4173`.
 
 ## Notes
 

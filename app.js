@@ -30,6 +30,8 @@ const discordWebhookEnabled = document.getElementById('discordWebhookEnabled');
 const slackWebhookUrl = document.getElementById('slackWebhookUrl');
 const slackWebhookEnabled = document.getElementById('slackWebhookEnabled');
 const saveWebhookSettings = document.getElementById('saveWebhookSettings');
+const testDiscordWebhook = document.getElementById('testDiscordWebhook');
+const testSlackWebhook = document.getElementById('testSlackWebhook');
 const webhookSettingsStatus = document.getElementById('webhookSettingsStatus');
 const historyModal = document.getElementById('historyModal');
 const closeHistoryModal = document.getElementById('closeHistoryModal');
@@ -121,11 +123,42 @@ function applyWebhookSettings(settings) {
     discordWebhookUrl.value = discord.url || '';
     slackWebhookEnabled.checked = Boolean(slack.enabled);
     slackWebhookUrl.value = slack.url || '';
+    validateWebhookForm();
 }
 
 function setWebhookStatus(message, tone = 'muted') {
     webhookSettingsStatus.textContent = message;
     webhookSettingsStatus.className = tone;
+}
+
+function validateWebhookUrl(provider, url) {
+    if (!url) return true;
+    if (provider === 'discord') {
+        return /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[\w-]+$/i.test(url);
+    }
+    if (provider === 'slack') {
+        return /^https:\/\/hooks\.slack\.com\/services\/[A-Z0-9]+\/[A-Z0-9]+\/[A-Za-z0-9]+$/i.test(url);
+    }
+    return false;
+}
+
+function validateWebhookForm() {
+    const discordValid = validateWebhookUrl('discord', discordWebhookUrl.value.trim());
+    const slackValid = validateWebhookUrl('slack', slackWebhookUrl.value.trim());
+
+    discordWebhookUrl.classList.toggle('invalid', !discordValid);
+    slackWebhookUrl.classList.toggle('invalid', !slackValid);
+    testDiscordWebhook.disabled = !discordWebhookEnabled.checked || !discordWebhookUrl.value.trim() || !discordValid;
+    testSlackWebhook.disabled = !slackWebhookEnabled.checked || !slackWebhookUrl.value.trim() || !slackValid;
+    saveWebhookSettings.disabled = !discordValid || !slackValid;
+
+    if (!discordValid) {
+        setWebhookStatus('Discord webhook URL looks invalid.', 'error');
+    } else if (!slackValid) {
+        setWebhookStatus('Slack webhook URL looks invalid.', 'error');
+    }
+
+    return discordValid && slackValid;
 }
 
 async function loadWebhookSettings() {
@@ -147,6 +180,8 @@ async function loadWebhookSettings() {
 }
 
 async function saveWebhookSettingsToServer() {
+    if (!validateWebhookForm()) return;
+
     const settings = getWebhookSettingsFromForm();
     window.localStorage.setItem('buildMonitorWebhookSettings', JSON.stringify(settings));
 
@@ -163,18 +198,48 @@ async function saveWebhookSettingsToServer() {
     }
 }
 
+async function testWebhook(provider) {
+    if (!validateWebhookForm()) return;
+
+    const settings = getWebhookSettingsFromForm();
+    const target = settings[provider];
+    if (!target || !target.enabled || !target.url) {
+        setWebhookStatus(`${provider} webhook is not enabled or URL is empty.`, 'error');
+        return;
+    }
+
+    setWebhookStatus(`Sending ${provider} test...`, 'muted');
+
+    try {
+        const response = await fetch(`api/test-webhook?provider=${encodeURIComponent(provider)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        setWebhookStatus(`${provider} test sent successfully.`, 'success');
+    } catch {
+        setWebhookStatus(`${provider} test failed. Start with serve.ps1 and check the webhook URL.`, 'error');
+    }
+}
+
 function setupWebhookSettings() {
     saveWebhookSettings.addEventListener('click', saveWebhookSettingsToServer);
+    testDiscordWebhook.addEventListener('click', () => testWebhook('discord'));
+    testSlackWebhook.addEventListener('click', () => testWebhook('slack'));
 
     [discordWebhookUrl, discordWebhookEnabled, slackWebhookUrl, slackWebhookEnabled].forEach((element) => {
         element.addEventListener('input', () => {
+            validateWebhookForm();
             window.clearTimeout(webhookSettingsSaveTimer);
             webhookSettingsSaveTimer = window.setTimeout(() => {
                 window.localStorage.setItem('buildMonitorWebhookSettings', JSON.stringify(getWebhookSettingsFromForm()));
             }, 250);
         });
+        element.addEventListener('change', validateWebhookForm);
     });
 
+    validateWebhookForm();
     loadWebhookSettings();
 }
 
