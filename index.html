@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unreal Build Real-time Monitor</title>
+    <!-- Premium Typography & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="brand">
+                <div class="logo-glow">
+                    <i class="fa-solid fa-bolt-lightning text-glow"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>GAS Build Monitor</h1>
+                    <p>Unreal Engine 5.7 Real-time Compilation Status</p>
+                </div>
+            </div>
+            <div class="status-badge-container">
+                <span id="statusBadge" class="status-badge running">
+                    <span class="pulse-dot"></span>
+                    <span id="statusText">RUNNING</span>
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="dashboard-grid">
+            <!-- Progress Circle Section -->
+            <section class="card glass progress-card">
+                <div class="circle-container">
+                    <svg class="progress-ring" width="220" height="220">
+                        <circle class="progress-ring__background" stroke="rgba(255,255,255,0.03)" stroke-width="12" fill="transparent" r="95" cx="110" cy="110"/>
+                        <circle id="progressRing" class="progress-ring__circle" stroke="url(#blueVioletGrad)" stroke-width="12" stroke-linecap="round" fill="transparent" r="95" cx="110" cy="110"/>
+                        <defs>
+                            <linearGradient id="blueVioletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#00f2fe" />
+                                <stop offset="100%" stop-color="#4facfe" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div class="circle-content">
+                        <span id="percentText" class="percent">0%</span>
+                        <span class="label">PROGRESS</span>
+                    </div>
+                </div>
+                <div class="linear-progress-details">
+                    <div class="progress-bar-container">
+                        <div id="linearProgressBar" class="linear-progress-bar"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats & Active File -->
+            <section class="details-section">
+                <!-- Target File Banner -->
+                <div class="card glass active-file-card">
+                    <div class="card-icon">
+                        <i class="fa-solid fa-file-code"></i>
+                    </div>
+                    <div class="active-file-content">
+                        <h3>Currently Compiling File</h3>
+                        <p id="activeFileName" class="file-name">Initializing...</p>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="card glass stat-card">
+                        <div class="stat-icon timer">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Elapsed Time</p>
+                            <p id="elapsedTime" class="stat-value">00:00</p>
+                        </div>
+                    </div>
+
+                    <div class="card glass stat-card">
+                        <div class="stat-icon actions">
+                            <i class="fa-solid fa-cubes"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Completed Actions</p>
+                            <p id="completedActions" class="stat-value">0 / 0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Stats -->
+                <div class="card glass footer-sync-card">
+                    <p><i class="fa-solid fa-rotate"></i> Last sync: <span id="lastUpdate">N/A</span></p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
