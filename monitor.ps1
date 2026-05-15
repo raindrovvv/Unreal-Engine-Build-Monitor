@@ -184,14 +184,34 @@ function Write-BuildStatus {
     }
 
     $json = $StatusData | ConvertTo-Json -Depth 8
-    "window.buildStatus = $json;" | Out-File -FilePath $StatusJsPath -Encoding utf8 -Force
+    $content = "window.buildStatus = $json;"
 
-    if (!$NoJson) {
-        $jsonDir = Split-Path $StatusJsonPath
-        if ($jsonDir -and !(Test-Path $jsonDir)) {
-            New-Item -ItemType Directory -Path $jsonDir -Force | Out-Null
+    # Retry logic for file writing to handle locking
+    $maxRetries = 5
+    $retryCount = 0
+    $success = $false
+
+    while (!$success -and $retryCount -lt $maxRetries) {
+        try {
+            # Use a temporary file and move it for atomic-like update
+            $tempPath = $StatusJsPath + ".tmp"
+            $content | Out-File -FilePath $tempPath -Encoding utf8 -Force
+            Move-Item -Path $tempPath -Destination $StatusJsPath -Force -ErrorAction Stop
+            
+            if (!$NoJson) {
+                $jsonTempPath = $StatusJsonPath + ".tmp"
+                $json | Out-File -FilePath $jsonTempPath -Encoding utf8 -Force
+                Move-Item -Path $jsonTempPath -Destination $StatusJsonPath -Force -ErrorAction Stop
+            }
+            $success = $true
+        } catch {
+            $retryCount++
+            if ($retryCount -lt $maxRetries) {
+                Start-Sleep -Milliseconds 100
+            } else {
+                Write-Warning "Failed to write build status after $maxRetries attempts: $($_.Exception.Message)"
+            }
         }
-        $json | Out-File -FilePath $StatusJsonPath -Encoding utf8 -Force
     }
 }
 

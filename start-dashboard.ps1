@@ -38,6 +38,11 @@ if (!$existingServer) {
     Start-HiddenPowerShell -Command "& '$serveScript' -Port $Port" -StdOut $serveOut -StdErr $serveErr | Out-Null
 }
 
+# Kill any existing monitor.ps1 processes to prevent file lock conflicts
+Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -match "monitor\.ps1" } | ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+}
+
 $monitorScript = Join-Path $root "monitor.ps1"
 $monitorCommand = "& '$monitorScript' -ProjectName '$ProjectName' -LogPath '$LogPath' -PollSeconds 1"
 if ($GitRepoPath) {
